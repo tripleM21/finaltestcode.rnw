@@ -1,0 +1,157 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+Customer DataSet Classification Using  Regression Using R
+
+
+Platform:Posit Cloud
+
+DatasetLink->https://www.kaggle.com/datasets/datascientistanna/customers-dataset
+Mark mwenda Miriti : 2500720
+<<>>=
+# Deactivated install packages because it is installing every time Run All is clicked
+# Install required packages just only once
+# install.packages("readr")
+# install.packages("dplyr")
+# install.packages("tidyr")
+# install.packages("ggplot2")
+# install.packages("Metrics")
+# install.packages("corrplot")
+# install.packages("caret")
+# install.packages("nnet")  
+# install.packages("e1071")  
+# install.packages("saveRDS")
+@
+
+<<>>=
+# Load all the necessary libraries
+library(readr)       # For reading CSV files
+library(dplyr)       # For data manipulation
+library(tidyr)       # For tidying data
+library(ggplot2)     # For data visualization
+library(Metrics)     # For evaluating regression models (if needed)
+library(corrplot)    # For plotting correlation matrices
+library(caret)       # For data partitioning and evaluation
+library(nnet)        # For multinomial logistic regression (multi-class classification)
+@
+
+<<>>=
+# Import customers dataset from CSV file
+customers <- read.csv("Customers.csv")
+@
+
+<<>>=
+# View column names in the dataset
+colnames(customers)
+@
+
+<<>>=
+# Rename columns to simpler names 
+colnames(customers) <- c("CustomerID", "Gender", "Age", "AnnualIncome", "SpendingScore", "Profession", "WorkExperience", "FamilySize")
+@
+
+<<>>=
+# Confirm new column names
+colnames(customers)
+@
+
+<<>>=
+# View a sample of the first and last few records
+head(customers)
+tail(customers)    
+@
+
+<<>>=
+# Summary statistics for each variable in the dataset
+summary(customers)
+@
+
+<<>>=
+# Show data structure and types of variables
+str(customers)
+@
+
+<<>>=
+# Select numeric columns and calculate correlations between them
+numeric_data <- customers %>% 
+  select(Age, AnnualIncome, SpendingScore, WorkExperience, FamilySize)
+cor_matrix <- cor(numeric_data)
+print(cor_matrix)
+
+# Plot the correlation matrix as a circle plot
+# corrplot(cor_matrix, method = "circle", type = "upper", tl.cex = 0.8)
+@
+
+<<>>=
+# Check for missing values in each column
+colSums(is.na(customers))
+@
+
+<<>>=
+# Count and print number of duplicated rows in the dataset
+duplicate_count <- sum(duplicated(customers))
+print(paste("Number of duplicate rows:", duplicate_count))
+@
+
+<<>>=
+# Prepare the dataset for classification by selecting important variables
+customers_model <- customers %>%
+  select(Age, AnnualIncome, SpendingScore, WorkExperience, FamilySize)
+
+# Categorize SpendingScore into 3 categories: Low, Medium, and High
+customers_model$SpendingCategory <- cut(customers_model$SpendingScore,
+  breaks = c(0, 34, 67, 100),
+  labels = c("Low", "Medium", "High"),
+  right = FALSE)
+
+# Remove rows with any NA just in case
+customers_model <- na.omit(customers_model)
+@
+
+<<>>=
+# Split dataset into training and testing sets (80% train, 20% test)
+set.seed(123)  # Set seed for reproducibility
+split_index <- createDataPartition(customers_model$SpendingCategory, p = 0.8, list = FALSE)
+train_data <- customers_model[split_index, ]
+test_data <- customers_model[-split_index, ]
+@
+
+<<>>=
+# Train a Multinomial Logistic Regression model (multi-class classification)
+multinom_model <- multinom(SpendingCategory ~ Age + AnnualIncome + WorkExperience + FamilySize, data = train_data)
+
+# Save the trained model to an RDS file
+saveRDS(multinom_model, file = "multinom_model.rds")
+@
+
+<<>>=
+# Load the saved multinomial model
+loaded_multinom_model <- readRDS("multinom_model.rds")
+@
+
+<<>>=
+# Use loaded multinomial logistic regression model to predict categories on the test data
+multinom_predicted <- predict(loaded_multinom_model, newdata = test_data)
+
+# Create a comparison table of Actual vs Predicted spending categories
+comparison_multinom <- data.frame(
+  Actual = test_data$SpendingCategory,
+  Predicted = multinom_predicted
+)
+
+# Generate a confusion matrix to evaluate model performance
+conf_matrix_multinom <- confusionMatrix(factor(comparison_multinom$Predicted), factor(comparison_multinom$Actual))
+print(conf_matrix_multinom)
+
+# Calculate accuracy for Multinomial Logistic Regression
+accuracy_multinom <- sum(comparison_multinom$Predicted == comparison_multinom$Actual) / nrow(comparison_multinom)
+print(paste("Accuracy for Multinomial Logistic Regression:", round(accuracy_multinom * 100, 2), "%"))
+@
+
+<<>>=
+# View the first few records of the comparison table with Actual and Predicted categories
+head(comparison_multinom)
+@
+
+\end{document}
