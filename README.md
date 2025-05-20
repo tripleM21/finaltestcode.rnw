@@ -1,0 +1,2 @@
+# finaltestcode.rnw
+Analysing data 
